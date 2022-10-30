@@ -1,0 +1,187 @@
+// Fig. 17.10: ProcessingEmployees.java
+// Processing streams of Employee objects.
+package com.eltonb.textbook.ex4;
+
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class ProcessingEmployees
+{
+   public static void main(String[] args)
+   {
+      // initialize array of Employees
+      Employee[] employees = {
+         new Employee(3, "Jason", "Red", 5000, "IT"),
+         new Employee(1,"Ashley", "Green", 7600, "IT"),
+         new Employee(4,"Matthew", "Indigo", 3587.5, "Sales"),
+         new Employee(5,"James", "Indigo", 4700.77, "Marketing"),
+         new Employee(7, "Luke", "Indigo", 6200, "IT"),
+         new Employee(6, "Jason", "Blue", 3200, "Sales"),
+         new Employee(2, "Wendy", "Brown", 4236.4, "Marketing"),
+         new Employee(8, "Foo", "Purple", 7000.0, "HR"),
+
+      };
+
+      // get List view of the Employees
+      List<Employee> list = Arrays.asList(employees);
+
+      // display all Employees
+      System.out.println("Complete Employee list:");
+      list.stream().forEach(System.out::println);
+      
+      // Predicate that returns true for salaries in the range $4000-$6000
+      
+      Predicate<Employee> greaterThanOrEqualTo4K = e -> e.getSalary() >= 4000;
+      Predicate<Employee> lessThanOrEqualTo6K = e -> e.getSalary() <= 6000;
+      Predicate<Employee> fourToSixThousand = greaterThanOrEqualTo4K.and(lessThanOrEqualTo6K);
+
+
+      Comparator<Employee> bySalary = new Comparator<Employee>() {
+         @Override
+         public int compare(Employee o1, Employee o2) {
+            if (o1.getSalary() < o2.getSalary())
+               return -1;
+            if (o1.getSalary() > o2.getSalary())
+               return 1;
+            return 0;
+         }
+      };
+      Comparator<Employee> bySalary2 = new EmployeeComparatorBySalary();
+      Comparator<Employee> bySalary3 = Comparator.comparing(Employee::getSalary);
+
+      // Display Employees with salaries in the range $4000-$6000
+      // sorted into ascending order by salary
+      System.out.printf(
+         "%nEmployees earning $4000-$6000 per month sorted by salary:%n");
+      list.stream()
+          //.filter(e -> e.getSalary() >= 4000)
+          .filter(greaterThanOrEqualTo4K)
+          //.filter(e -> e.getSalary() <= 6000)
+          .filter(lessThanOrEqualTo6K)
+          .sorted(Comparator.comparing(Employee::getSalary))
+          .forEach(System.out::println);
+
+      // Display first Employee with salary in the range $4000-$6000
+      System.out.printf("%nFirst employee who earns $4000-$6000:%n%s%n",
+         list.stream()
+             .filter(e -> e.getSalary() >= 4000)
+             .filter(lessThanOrEqualTo6K)
+             .findAny()
+             .orElseThrow(() -> new RuntimeException("no such data"))
+      );
+
+      // Functions for getting first and last names from an Employee
+      Function<Employee, String> byFirstName = Employee::getFirstName;
+      Function<Employee, String> byLastName = Employee::getLastName;
+
+      // Comparator for comparing Employees by first name then last name
+      Comparator<Employee> lastThenFirst = 
+         Comparator
+                 .comparing(Employee::getLastName)
+                 .thenComparing(Employee::getFirstName);
+
+      // sort employees by last name, then first name 
+      System.out.printf(
+         "%nEmployees in ascending order by last name then first:%n");
+      list.stream()
+          .sorted(lastThenFirst)
+          .forEach(System.out::println);
+
+      // sort employees in descending order by last name, then first name
+      System.out.printf(
+         "%nEmployees in descending order by last name then first:%n");
+      list.stream()
+          .sorted(lastThenFirst.reversed())
+          .forEach(System.out::println);
+
+      // display unique employee last names sorted
+      System.out.printf("%nUnique employee last names:%n");
+      list.stream()
+          .map(Employee::getLastName)
+          .distinct()
+          .sorted()
+          .forEach(System.out::println);
+
+      // display only first and last names
+      System.out.printf(
+         "%nEmployee names in order by last name then first name:%n"); 
+      list.stream()
+          .sorted(lastThenFirst)
+          .map(Employee::getName)
+          .forEach(System.out::println);
+
+      // group Employees by department
+      System.out.printf("%nEmployees by department:%n"); 
+      Map<String, List<Employee>> groupedByDepartment =
+         list.stream()
+             .collect(Collectors.groupingBy(Employee::getDepartment, TreeMap::new, Collectors.toList()));
+      
+      groupedByDepartment.forEach(
+         (department, employeesInDepartment) ->
+         {
+            System.out.println(department);
+            employeesInDepartment.forEach(
+               employee -> System.out.printf("   %s%n", employee));
+         }
+      );
+
+      Object t;
+      // count number of Employees in each department
+      System.out.printf("%nCount of Employees by department:%n"); 
+      Map<String, Long> employeeCountByDepartment =
+         list.stream()
+             .collect(Collectors.groupingBy(Employee::getDepartment, 
+                              TreeMap::new, Collectors.counting()));
+      employeeCountByDepartment.forEach(
+         (department, count) -> System.out.printf(
+            "%s has %d employee(s)%n", department, count));
+
+      // sum of Employee salaries with DoubleStream sum method
+      System.out.printf(
+         "%nSum of Employees' salaries (via sum method): %.2f%n",
+         list.stream()                             //.map(Employee::getSalary) --> Stream<Double>
+             .mapToDouble(Employee::getSalary)     //DoubleStream --> Stream<double>
+             .sum());
+
+      // calculate sum of Employee salaries with Stream reduce method
+      System.out.printf(
+         "Sum of Employees' salaries (via reduce method): %.2f%n",
+         list.stream()
+             .mapToDouble(Employee::getSalary)
+             .reduce(0, (value1, value2) -> value1 + value2));
+
+      // average of Employee salaries with DoubleStream average method
+      System.out.printf("Average of Employees' salaries: %.2f%n",
+         list.stream()
+             .filter(x -> x.getSalary() >= 15_000)
+             .mapToDouble(Employee::getSalary)
+             .average()
+             .orElseThrow(() -> new RuntimeException("no such employess")));
+                   
+   } // end main
+} // end class ProcessingEmployees
+
+ 
+ /*************************************************************************
+ * (C) Copyright 1992-2014 by Deitel & Associates, Inc. and               *
+ * Pearson Education, Inc. All Rights Reserved.                           *
+ *                                                                        *
+ * DISCLAIMER: The authors and publisher of this book have used their     *
+ * best efforts in preparing the book. These efforts include the          *
+ * development, research, and testing of the theories and programs        *
+ * to determine their effectiveness. The authors and publisher make       *
+ * no warranty of any kind, expressed or implied, with regard to these    *
+ * programs or to the documentation contained in these books. The authors *
+ * and publisher shall not be liable in any event for incidental or       *
+ * consequential damages in connection with, or arising out of, the       *
+ * furnishing, performance, or use of these programs.                     *
+ *************************************************************************/
